@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Master: Power Automate Challenge</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Segoe UI replacement & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Segoe UI', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        pa: {
+                            blue: '#0078D4',
+                            darkBlue: '#106EBE',
+                            teal: '#008272',
+                            green: '#107C41',
+                            purple: '#5C2D91',
+                            orange: '#D13438',
+                            amber: '#F2C811',
+                            bgDark: '#0B1120',
+                            panelDark: '#1E293B',
+                            canvasDark: '#0F172A'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        .node-trigger { border-color: #107C41; background: rgba(16, 124, 65, 0.12); }
+        .node-action { border-color: #0078D4; background: rgba(0, 120, 212, 0.12); }
+        .node-control { border-color: #5C2D91; background: rgba(92, 45, 145, 0.12); }
+        .node-variable { border-color: #008272; background: rgba(0, 130, 114, 0.12); }
+
+        .badge-trigger { background-color: #107C41; color: #ffffff; }
+        .badge-action { background-color: #0078D4; color: #ffffff; }
+        .badge-control { background-color: #5C2D91; color: #ffffff; }
+        .badge-variable { background-color: #008272; color: #ffffff; }
+
+        .connection-line {
+            stroke-dasharray: 8;
+            animation: dash 1.5s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -16; }
+        }
+
+        @keyframes pulse-node {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 120, 212, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 0 15px 5px rgba(0, 120, 212, 0.6); }
+        }
+        .node-executing {
+            animation: pulse-node 1s ease-in-out infinite;
+        }
+
+        .canvas-grid-dark {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        }
+        .canvas-grid-light {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-pa-bgDark text-slate-100 font-sans min-h-screen flex flex-col selection:bg-pa-blue selection:text-white antialiased overflow-hidden">
+
+    <!-- Top App Navigation Bar -->
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-30 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-pa-blue to-cyan-400 flex items-center justify-center shadow-lg shadow-pa-blue/30">
+                <i data-lucide="workflow" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-wide text-white flex items-center gap-2">
+                    FLOW MASTER <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-pa-blue/20 text-pa-blue border border-pa-blue/30">POWER AUTOMATE</span>
+                </h1>
+            </div>
+        </div>
+
+        <!-- Header Stats & Level Switcher -->
+        <div class="flex items-center gap-4">
+            <div class="hidden sm:flex items-center gap-3 bg-slate-950 px-3 py-1 rounded-lg border border-slate-800 text-xs font-mono">
+                <div class="flex items-center gap-1.5 text-amber-400">
+                    <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400"></i>
+                    <span id="stat-stars">0 / 15</span>
+                </div>
+                <span class="text-slate-700">|</span>
+                <div class="flex items-center gap-1.5 text-cyan-400">
+                    <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
+                    <span id="stat-score">0 PTS</span>
+                </div>
+            </div>
+
+            <!-- Theme & Audio Controls -->
+            <button onclick="game.toggleCanvasTheme()" id="btn-theme" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Toggle Canvas Theme">
+                <i data-lucide="sun" class="w-4 h-4"></i>
+            </button>
+            <button onclick="game.toggleAudio()" id="btn-audio" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Toggle Sound Effects">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+            </button>
+            <button onclick="game.openGuide()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pa-blue hover:bg-pa-darkBlue text-white font-medium text-xs transition shadow-md shadow-pa-blue/20">
+                <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                <span>Expression Guide</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Sidebar: Level Selector & Node Toolbox -->
+        <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shrink-0">
+            
+            <!-- Level Selector Bar -->
+            <div class="p-3 border-b border-slate-800 bg-slate-950">
+                <label class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">Select Challenge</label>
+                <select id="level-select" onchange="game.loadLevel(parseInt(this.value))" class="w-full bg-slate-900 border border-slate-700 text-xs text-white rounded-lg p-2 focus:outline-none focus:border-pa-blue font-medium">
+                    <!-- Options populated via JS -->
+                </select>
+            </div>
+
+            <!-- Level Goal / Objective Banner -->
+            <div class="p-4 border-b border-slate-800 bg-slate-900/50">
+                <div class="flex items-center justify-between mb-1">
+                    <span id="level-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pa-blue/20 text-pa-blue border border-pa-blue/30">LEVEL 1</span>
+                    <div id="level-stars" class="flex gap-1"></div>
+                </div>
+                <h2 id="level-title" class="font-bold text-sm text-white mb-1">The Automated Email Responder</h2>
+                <p id="level-desc" class="text-xs text-slate-400 leading-relaxed mb-3">Build a flow that triggers when a new email arrives and sends an automated acknowledgment reply.</p>
+                
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span class="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider block mb-1 flex items-center gap-1">
+                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> Target Output
+                    </span>
+                    <p id="level-target" class="text-xs text-slate-300 font-mono">Trigger: Email -> Action: Send Email</p>
+                </div>
+            </div>
+
+            <!-- Building Blocks Palette -->
+            <div class="flex-1 flex flex-col p-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Available Actions & Triggers</span>
+                    <span class="text-[10px] text-slate-500 font-mono">Click to Add</span>
+                </div>
+
+                <div id="toolbox-list" class="space-y-2">
+                    <!-- Dynamic Palette Cards inserted here -->
+                </div>
+            </div>
+
+            <!-- Control Actions Footer -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950 flex gap-2">
+                <button onclick="game.clearCanvas()" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Clear Flow
+                </button>
+                <button onclick="game.executeFlow()" id="btn-test-flow" class="flex-1 py-2 rounded-lg bg-gradient-to-r from-pa-green to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 text-white font-bold text-xs shadow-lg shadow-pa-green/20 transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Test Flow
+                </button>
+            </div>
+        </aside>
+
+        <!-- Center Interactive Flow Canvas -->
+        <main id="canvas-container" class="flex-1 relative bg-pa-canvasDark canvas-grid-dark overflow-auto flex items-center justify-center p-12 transition-colors">
+            
+            <!-- SVG Line Connections Overlay -->
+            <svg id="svg-overlay" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                <!-- Lines render here -->
+            </svg>
+
+            <!-- Flow Step Nodes Container -->
+            <div id="flow-canvas" class="relative z-10 flex flex-col items-center gap-8 min-w-[360px] max-w-2xl py-8">
+                <!-- Node Cards populated via JS -->
+            </div>
+
+        </main>
+
+        <!-- Right Output Console & Variable Inspector -->
+        <aside class="w-80 bg-slate-900 border-l border-slate-800 flex flex-col z-20 shrink-0">
+            <!-- Console Header -->
+            <div class="p-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+                    <span class="text-xs font-bold font-mono text-white">Execution Log Console</span>
+                </div>
+                <span id="execution-status" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">Idle</span>
+            </div>
+
+            <!-- Terminal Run Output Log -->
+            <div id="execution-logs" class="flex-1 p-3 font-mono text-[11px] leading-relaxed text-slate-300 overflow-y-auto space-y-2 bg-slate-950/80">
+                <div class="text-slate-600 italic">Ready to run. Click "Test Flow" to simulate execution...</div>
+            </div>
+
+            <!-- Output / Dynamic Content Inspector -->
+            <div class="h-56 border-t border-slate-800 bg-slate-900 flex flex-col">
+                <div class="p-2.5 border-b border-slate-800/80 bg-slate-950/60 flex items-center justify-between">
+                    <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="database" class="w-3.5 h-3.5 text-pa-blue"></i> Dynamic Content Output
+                    </span>
+                </div>
+                <div id="inspector-body" class="flex-1 p-3 font-mono text-xs text-slate-300 overflow-y-auto bg-slate-950/50">
+                    <div class="text-slate-600 italic text-[11px]">Select a step or run execution to inspect dynamic content schema output.</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Expression Reference & Syntax Guide Modal -->
+    <dialog id="modal-guide" class="bg-transparent backdrop:bg-slate-950/80 p-4 max-w-2xl w-full">
+        <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-slate-100 max-h-[85vh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-5 h-5 text-pa-blue"></i>
+                    <h3 class="text-base font-bold text-white">Power Automate Expression Reference Guide</h3>
+                </div>
+                <button onclick="document.getElementById('modal-guide').close()" class="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs font-mono">
+                <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                    <span class="text-pa-blue font-bold block mb-1">formatDateTime(timestamp, format)</span>
+                    <p class="text-slate-400 font-sans mb-2">Formats a date string into custom display format.</p>
+                    <code class="text-emerald-400 bg-slate-900 px-2 py-1 rounded block">formatDateTime(utcNow(), 'yyyy-MM-dd HH:mm')</code>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                    <span class="text-pa-teal font-bold block mb-1">triggerOutputs()?['body/Subject']</span>
+                    <p class="text-slate-400 font-sans mb-2">Retrieves dynamic parameters from trigger outputs safely using navigation syntax.</p>
+                    <code class="text-emerald-400 bg-slate-900 px-2 py-1 rounded block">triggerOutputs()?['body/From']</code>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                    <span class="text-pa-purple font-bold block mb-1">items('Apply_to_each')</span>
+                    <p class="text-slate-400 font-sans mb-2">Accesses current iteration item inside a loop control action.</p>
+                    <code class="text-emerald-400 bg-slate-900 px-2 py-1 rounded block">items('Apply_to_each')?['Author/Email']</code>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Success Modal -->
+    <dialog id="modal-success" class="bg-transparent backdrop:bg-slate-950/85 p-4 max-w-md w-full">
+        <div class="bg-slate-900 rounded-2xl p-6 border border-pa-blue/40 text-center shadow-2xl">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="award" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-1">Level Cleared!</h3>
+            <p id="success-desc" class="text-xs text-slate-400 mb-4">Your flow ran cleanly without errors.</p>
+            
+            <div id="modal-stars" class="flex justify-center gap-2 mb-6"></div>
+
+            <button onclick="game.nextLevel()" class="w-full py-2.5 rounded-xl bg-pa-blue hover:bg-pa-darkBlue text-white font-bold text-xs transition flex items-center justify-center gap-2">
+                <span>Continue to Next Challenge</span>
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </dialog>
+
+    <!-- Main Game Script -->
+    <script>
+        // Web Audio Synthesizer
+        class AudioEngine {
+            constructor() { this.ctx = null; this.enabled = true; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            playConnect() {
+                if (!this.enabled) return; this.init();
+                const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+            }
+            playSuccess() {
+                if (!this.enabled) return; this.init();
+                const now = this.ctx.currentTime;
+                [440, 554.37, 659.25, 880].forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(f, now + idx * 0.07);
+                    gain.gain.setValueAtTime(0.08, now + idx * 0.07); gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.25);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.07); osc.stop(now + idx * 0.07 + 0.25);
+                });
+            }
+            playError() {
+                if (!this.enabled) return; this.init();
+                const now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.2);
+                gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.2);
+            }
+        }
+
+        // Available Nodes Catalog
+        const NODE_CATALOG = {
+            'trig_email': { id: 'trig_email', name: 'When a new email arrives (V3)', category: 'trigger', icon: 'mail', desc: 'Triggers when Outlook receives a new email.' },
+            'trig_sharepoint': { id: 'trig_sharepoint', name: 'When an item is created', category: 'trigger', icon: 'file-text', desc: 'Triggers when a new SharePoint list item is added.' },
+            'trig_forms': { id: 'trig_forms', name: 'When a new response is submitted', category: 'trigger', icon: 'form-input', desc: 'Triggers when Microsoft Forms receives a response.' },
+            
+            'act_send_email': { id: 'act_send_email', name: 'Send an email (V2)', category: 'action', icon: 'send', desc: 'Sends an email through Office 365 Outlook.' },
+            'act_teams_msg': { id: 'act_teams_msg', name: 'Post message in a chat or channel', category: 'action', icon: 'message-square', desc: 'Posts a notification into Microsoft Teams.' },
+            'act_sp_get_items': { id: 'act_sp_get_items', name: 'Get items (SharePoint)', category: 'action', icon: 'database', desc: 'Retrieves multiple rows from a SharePoint list.' },
+            'act_onedrive_create': { id: 'act_onedrive_create', name: 'Create file in OneDrive', category: 'action', icon: 'cloud-upload', desc: 'Saves output content to OneDrive storage.' },
+            
+            'ctrl_condition': { id: 'ctrl_condition', name: 'Condition (If / Else)', category: 'control', icon: 'git-fork', desc: 'Branches execution based on expression conditions.' },
+            'ctrl_apply_each': { id: 'ctrl_apply_each', name: 'Apply to each', category: 'control', icon: 'repeat', desc: 'Loops through array items retrieved from data sources.' },
+            
+            'var_init': { id: 'var_init', name: 'Initialize variable', category: 'variable', icon: 'variable', desc: 'Declares an execution state variable.' },
+            'var_compose': { id: 'var_compose', name: 'Compose Dynamic Content', category: 'variable', icon: 'code', desc: 'Formats inputs or expressions into clean outputs.' }
+        };
+
+        // 5 Game Levels Configuration
+        const GAME_LEVELS = [
+            {
+                id: 1,
+                title: "The Automated Email Responder",
+                badge: "LEVEL 1 - BASIC",
+                desc: "Build a flow that triggers when a new email arrives and immediately sends an automated confirmation email back.",
+                target: "When email arrives -> Send an email (V2)",
+                allowedNodes: ['trig_email', 'act_send_email', 'act_teams_msg'],
+                solution: ['trig_email', 'act_send_email'],
+                validation: (canvasNodes) => {
+                    if (canvasNodes.length !== 2) return false;
+                    return canvasNodes[0].catalogId === 'trig_email' && canvasNodes[1].catalogId === 'act_send_email';
+                }
+            },
+            {
+                id: 2,
+                title: "Approval Workflow",
+                badge: "LEVEL 2 - CONTROL LOGIC",
+                desc: "Create an approval branch: Trigger when a SharePoint item is created, evaluate a Condition, and route outputs.",
+                target: "SP Item Created -> Condition -> [If Yes: Post Teams | If No: Send Email]",
+                allowedNodes: ['trig_sharepoint', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                solution: ['trig_sharepoint', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                validation: (canvasNodes) => {
+                    if (canvasNodes.length < 3) return false;
+                    return canvasNodes[0].catalogId === 'trig_sharepoint' && canvasNodes[1].catalogId === 'ctrl_condition';
+                }
+            },
+            {
+                id: 3,
+                title: "Data Extractor & SharePoint Sync",
+                badge: "LEVEL 3 - LOOPS",
+                desc: "Fetch multiple items from SharePoint, loop through them using Apply to Each, and output a summary email.",
+                target: "SP Trigger -> Get Items -> Apply to Each -> Send Email",
+                allowedNodes: ['trig_sharepoint', 'act_sp_get_items', 'ctrl_apply_each', 'act_send_email'],
+                solution: ['trig_sharepoint', 'act_sp_get_items', 'ctrl_apply_each', 'act_send_email'],
+                validation: (canvasNodes) => {
+                    const ids = canvasNodes.map(n => n.catalogId);
+                    return ids.join(',') === 'trig_sharepoint,act_sp_get_items,ctrl_apply_each,act_send_email';
+                }
+            },
+            {
+                id: 4,
+                title: "Bug Squashing & Expression Master",
+                badge: "LEVEL 4 - EXPRESSIONS",
+                desc: "Fix the flow order! Initialize a date variable, format it with Compose, and output to OneDrive.",
+                target: "Email Trigger -> Initialize variable -> Compose Dynamic Content -> Create file in OneDrive",
+                allowedNodes: ['trig_email', 'var_init', 'var_compose', 'act_onedrive_create'],
+                solution: ['trig_email', 'var_init', 'var_compose', 'act_onedrive_create'],
+                validation: (canvasNodes) => {
+                    const ids = canvasNodes.map(n => n.catalogId);
+                    return ids.join(',') === 'trig_email,var_init,var_compose,act_onedrive_create';
+                }
+            },
+            {
+                id: 5,
+                title: "Enterprise Automation Boss Challenge",
+                badge: "LEVEL 5 - BOSS",
+                desc: "Construct an enterprise end-to-end flow connecting Forms, SharePoint, Conditionals, Teams, and Email.",
+                target: "Forms -> SP Item -> Condition -> Teams & Email",
+                allowedNodes: ['trig_forms', 'trig_sharepoint', 'act_sp_get_items', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                solution: ['trig_forms', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                validation: (canvasNodes) => {
+                    if (canvasNodes.length < 4) return false;
+                    return canvasNodes[0].catalogId === 'trig_forms' && canvasNodes[1].catalogId === 'ctrl_condition';
+                }
+            }
+        ];
+
+        // Master Application Class
+        class FlowMasterGame {
+            constructor() {
+                this.audio = new AudioEngine();
+                this.currentLevelIndex = 0;
+                this.canvasNodes = [];
+                this.scores = {};
+                this.canvasDark = true;
+                this.init();
+            }
+
+            init() {
+                this.renderLevelOptions();
+                this.loadLevel(0);
+                lucide.createIcons();
+            }
+
+            renderLevelOptions() {
+                const select = document.getElementById('level-select');
+                select.innerHTML = '';
+                GAME_LEVELS.forEach((lvl, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = `L${lvl.id}: ${lvl.title}`;
+                    select.appendChild(opt);
+                });
+            }
+
+            loadLevel(idx) {
+                this.currentLevelIndex = idx;
+                const lvl = GAME_LEVELS[idx];
+                
+                document.getElementById('level-badge').textContent = lvl.badge;
+                document.getElementById('level-title').textContent = lvl.title;
+                document.getElementById('level-desc').textContent = lvl.desc;
+                document.getElementById('level-target').textContent = lvl.target;
+                document.getElementById('level-select').value = idx;
+
+                this.renderToolbox(lvl.allowedNodes);
+                this.clearCanvas();
+                this.updateScoreDisplay();
+            }
+
+            renderToolbox(nodeIds) {
+                const list = document.getElementById('toolbox-list');
+                list.innerHTML = '';
+
+                nodeIds.forEach(id => {
+                    const info = NODE_CATALOG[id];
+                    if (!info) return;
+
+                    const card = document.createElement('button');
+                    card.className = `w-full p-2.5 rounded-xl border text-left transition flex items-center gap-3 hover:scale-[1.02] active:scale-95 node-${info.category}`;
+                    card.onclick = () => {
+                        this.audio.playConnect();
+                        this.addNodeToCanvas(id);
+                    };
+
+                    card.innerHTML = `
+                        <div class="p-2 rounded-lg badge-${info.category} text-white shrink-0">
+                            <i data-lucide="${info.icon}" class="w-4 h-4"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <span class="text-xs font-bold text-white block truncate">${info.name}</span>
+                            <span class="text-[10px] text-slate-400 block truncate">${info.desc}</span>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+
+            addNodeToCanvas(catalogId) {
+                const info = NODE_CATALOG[catalogId];
+                if (!info) return;
+
+                // Check single trigger rule
+                if (info.category === 'trigger' && this.canvasNodes.some(n => NODE_CATALOG[n.catalogId].category === 'trigger')) {
+                    this.log('Error: A Power Automate flow can only have ONE trigger at the top step.', 'error');
+                    this.audio.playError();
+                    return;
+                }
+
+                const nodeInstance = {
+                    instanceId: 'node_' + Date.now() + '_' + Math.floor(Math.random()*100),
+                    catalogId: catalogId
+                };
+
+                this.canvasNodes.push(nodeInstance);
+                this.renderCanvas();
+                this.log(`Added step: [${info.name}]`, 'info');
+            }
+
+            removeNode(instanceId) {
+                this.audio.playConnect();
+                this.canvasNodes = this.canvasNodes.filter(n => n.instanceId !== instanceId);
+                this.renderCanvas();
+            }
+
+            clearCanvas() {
+                this.canvasNodes = [];
+                this.renderCanvas();
+                document.getElementById('execution-logs').innerHTML = `<div class="text-slate-600 italic">Ready to run. Click "Test Flow" to simulate execution...</div>`;
+                document.getElementById('inspector-body').innerHTML = `<div class="text-slate-600 italic text-[11px]">Select a step or run execution to inspect output.</div>`;
+                document.getElementById('execution-status').textContent = "Idle";
+                document.getElementById('execution-status').className = "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400";
+            }
+
+            renderCanvas() {
+                const container = document.getElementById('flow-canvas');
+                container.innerHTML = '';
+
+                if (this.canvasNodes.length === 0) {
+                    container.innerHTML = `
+                        <div class="p-8 rounded-2xl border-2 border-dashed border-slate-800 text-center max-w-sm">
+                            <i data-lucide="plus-circle" class="w-8 h-8 text-slate-600 mx-auto mb-2"></i>
+                            <p class="text-xs text-slate-400 font-medium">Flow canvas is empty.</p>
+                            <p class="text-[11px] text-slate-600 mt-1">Click triggers or actions on the left sidebar to add them here.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    this.drawConnections();
+                    return;
+                }
+
+                this.canvasNodes.forEach((node, index) => {
+                    const info = NODE_CATALOG[node.catalogId];
+                    const card = document.createElement('div');
+                    card.id = node.instanceId;
+                    card.className = `w-80 rounded-xl border p-3 bg-slate-900 shadow-xl transition-all relative z-10 node-${info.category}`;
+                    
+                    card.onclick = () => this.inspectNode(node);
+
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded badge-${info.category} uppercase font-bold">
+                                    STEP ${index + 1}
+                                </span>
+                                <span class="text-xs font-bold text-white truncate max-w-[170px]">${info.name}</span>
+                            </div>
+                            <button onclick="event.stopPropagation(); game.removeNode('${node.instanceId}')" class="text-slate-500 hover:text-rose-400 transition">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <i data-lucide="${info.icon}" class="w-4 h-4 text-slate-300 shrink-0"></i>
+                            <span class="truncate">${info.desc}</span>
+                        </div>
+                    `;
+
+                    container.appendChild(card);
+                });
+
+                lucide.createIcons();
+                setTimeout(() => this.drawConnections(), 50);
+            }
+
+            drawConnections() {
+                const svg = document.getElementById('svg-overlay');
+                svg.innerHTML = '';
+
+                if (this.canvasNodes.length < 2) return;
+
+                for (let i = 0; i < this.canvasNodes.length - 1; i++) {
+                    const el1 = document.getElementById(this.canvasNodes[i].instanceId);
+                    const el2 = document.getElementById(this.canvasNodes[i+1].instanceId);
+
+                    if (!el1 || !el2) continue;
+
+                    const r1 = el1.getBoundingClientRect();
+                    const r2 = el2.getBoundingClientRect();
+                    const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+
+                    const x1 = r1.left + r1.width / 2 - containerRect.left;
+                    const y1 = r1.bottom - containerRect.top;
+                    const x2 = r2.left + r2.width / 2 - containerRect.left;
+                    const y2 = r2.top - containerRect.top;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${x1} ${y1} C ${x1} ${y1 + 25}, ${x2} ${y2 - 25}, ${x2} ${y2}`;
+                    
+                    path.setAttribute('d', d);
+                    path.setAttribute('stroke', '#0078D4');
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('class', 'connection-line');
+
+                    svg.appendChild(path);
+                }
+            }
+
+            inspectNode(node) {
+                const info = NODE_CATALOG[node.catalogId];
+                const inspector = document.getElementById('inspector-body');
+
+                let sampleOutput = {};
+                if (info.category === 'trigger') {
+                    sampleOutput = {
+                        statusCode: 200,
+                        headers: { "content-type": "application/json" },
+                        body: { id: "ITEM-9042", subject: "Automated Inquiry", from: "user@organization.com" }
+                    };
+                } else {
+                    sampleOutput = {
+                        actionStatus: "Succeeded",
+                        durationMs: 142,
+                        outputs: { messageId: "MSG-8812", timestamp: new Date().toISOString() }
+                    };
+                }
+
+                inspector.innerHTML = `
+                    <div class="mb-2 font-bold text-white">${info.name}</div>
+                    <pre class="text-[10px] text-emerald-400 bg-slate-950 p-2 rounded border border-slate-800 overflow-x-auto">${JSON.stringify(sampleOutput, null, 2)}</pre>
+                `;
+            }
+
+            executeFlow() {
+                const currentLvl = GAME_LEVELS[this.currentLevelIndex];
+                const logs = document.getElementById('execution-logs');
+                const status = document.getElementById('execution-status');
+                logs.innerHTML = '';
+
+                if (this.canvasNodes.length === 0) {
+                    this.log('Execution cancelled: Flow has no steps.', 'error');
+                    this.audio.playError();
+                    return;
+                }
+
+                status.textContent = "Running...";
+                status.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30";
+
+                let stepDelay = 0;
+                let isValid = currentLvl.validation(this.canvasNodes);
+
+                this.canvasNodes.forEach((node, idx) => {
+                    const info = NODE_CATALOG[node.catalogId];
+                    const card = document.getElementById(node.instanceId);
+
+                    setTimeout(() => {
+                        if (card) card.classList.add('node-executing');
+                        this.audio.playConnect();
+                        this.log(`[Step ${idx + 1}] Executing ${info.name}...`, 'info');
+
+                        setTimeout(() => {
+                            if (card) card.classList.remove('node-executing');
+                            this.log(`[Step ${idx + 1}] Succeeded (200 OK)`, 'success');
+                        }, 400);
+
+                    }, stepDelay);
+
+                    stepDelay += 600;
+                });
+
+                // Final Evaluation
+                setTimeout(() => {
+                    if (isValid) {
+                        status.textContent = "Succeeded";
+                        status.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                        this.log('Flow run completed successfully! Goal reached.', 'success');
+                        this.audio.playSuccess();
+
+                        // Score & Stars calculation
+                        const stars = 3;
+                        this.scores[currentLvl.id] = { stars, score: 300 };
+                        this.updateScoreDisplay();
+                        this.showSuccessModal(stars);
+
+                    } else {
+                        status.textContent = "Failed";
+                        status.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                        this.log('Flow execution failed requirements! Review level objective targets.', 'error');
+                        this.audio.playError();
+                    }
+                }, stepDelay + 200);
+            }
+
+            log(msg, type = 'info') {
+                const logs = document.getElementById('execution-logs');
+                const item = document.createElement('div');
+                
+                let colorClass = 'text-slate-300';
+                if (type === 'error') colorClass = 'text-rose-400 font-bold';
+                if (type === 'success') colorClass = 'text-emerald-400 font-bold';
+
+                item.className = `${colorClass} flex items-start gap-1.5`;
+                item.innerHTML = `<span class="text-slate-600">[${new Date().toLocaleTimeString().split(' ')[0]}]</span> <span>${msg}</span>`;
+                logs.appendChild(item);
+                logs.scrollTop = logs.scrollHeight;
+            }
+
+            showSuccessModal(stars) {
+                const modal = document.getElementById('modal-success');
+                const starsBox = document.getElementById('modal-stars');
+                starsBox.innerHTML = '';
+
+                for (let i = 0; i < 3; i++) {
+                    starsBox.innerHTML += `<i data-lucide="star" class="w-6 h-6 ${i < stars ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}"></i>`;
+                }
+
+                lucide.createIcons();
+                modal.showModal();
+            }
+
+            nextLevel() {
+                document.getElementById('modal-success').close();
+                if (this.currentLevelIndex < GAME_LEVELS.length - 1) {
+                    this.loadLevel(this.currentLevelIndex + 1);
+                } else {
+                    alert("Congratulations! You have completed all Flow Master Power Automate Challenges!");
+                }
+            }
+
+            updateScoreDisplay() {
+                let totalStars = 0, totalPts = 0;
+                Object.values(this.scores).forEach(s => {
+                    totalStars += s.stars || 0;
+                    totalPts += s.score || 0;
+                });
+
+                document.getElementById('stat-stars').textContent = `${totalStars} / ${GAME_LEVELS.length * 3}`;
+                document.getElementById('stat-score').textContent = `${totalPts} PTS`;
+            }
+
+            toggleCanvasTheme() {
+                const canvas = document.getElementById('canvas-container');
+                this.canvasDark = !this.canvasDark;
+
+                if (this.canvasDark) {
+                    canvas.className = "flex-1 relative bg-pa-canvasDark canvas-grid-dark overflow-auto flex items-center justify-center p-12 transition-colors";
+                } else {
+                    canvas.className = "flex-1 relative bg-slate-100 canvas-grid-light overflow-auto flex items-center justify-center p-12 transition-colors";
+                }
+            }
+
+            toggleAudio() {
+                this.audio.enabled = !this.audio.enabled;
+                document.getElementById('btn-audio').classList.toggle('text-slate-500', !this.audio.enabled);
+            }
+
+            openGuide() {
+                document.getElementById('modal-guide').showModal();
+            }
+        }
+
+        // Global initialization
+        let game;
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new FlowMasterGame();
+            window.addEventListener('resize', () => game.drawConnections());
+        });
+    </script>
+</body>
+</html>
