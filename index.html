@@ -148,7 +148,7 @@
                 
                 <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
                     <span class="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider block mb-1 flex items-center gap-1">
-                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> Target Output
+                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> Target Output Sequence
                     </span>
                     <p id="level-target" class="text-xs text-slate-300 font-mono">Trigger: Email -> Action: Send Email</p>
                 </div>
@@ -186,7 +186,7 @@
             </svg>
 
             <!-- Flow Step Nodes Container -->
-            <div id="flow-canvas" class="relative z-10 flex flex-col items-center gap-8 min-w-[360px] max-w-2xl py-8">
+            <div id="flow-canvas" class="relative z-10 flex flex-col items-center gap-8 min-w-[380px] max-w-2xl py-8">
                 <!-- Node Cards populated via JS -->
             </div>
 
@@ -269,7 +269,7 @@
             <div id="modal-stars" class="flex justify-center gap-2 mb-6"></div>
 
             <button onclick="game.nextLevel()" class="w-full py-2.5 rounded-xl bg-pa-blue hover:bg-pa-darkBlue text-white font-bold text-xs transition flex items-center justify-center gap-2">
-                <span>Continue to Next Challenge</span>
+                <span id="btn-modal-next-text">Continue to Next Challenge</span>
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
         </div>
@@ -316,8 +316,10 @@
         const NODE_CATALOG = {
             'trig_email': { id: 'trig_email', name: 'When a new email arrives (V3)', category: 'trigger', icon: 'mail', desc: 'Triggers when Outlook receives a new email.' },
             'trig_sharepoint': { id: 'trig_sharepoint', name: 'When an item is created', category: 'trigger', icon: 'file-text', desc: 'Triggers when a new SharePoint list item is added.' },
-            'trig_forms': { id: 'trig_forms', name: 'When a new response is submitted', category: 'trigger', icon: 'form-input', desc: 'Triggers when Microsoft Forms receives a response.' },
+            'trig_forms': { id: 'trig_forms', name: 'When a new response is submitted', category: 'trigger', icon: 'form-input', desc: 'Triggers when Microsoft Forms receives a new response.' },
             
+            'act_forms_details': { id: 'act_forms_details', name: 'Get response details (Forms)', category: 'action', icon: 'file-spreadsheet', desc: 'Retrieves form input response fields.' },
+            'act_sp_create_item': { id: 'act_sp_create_item', name: 'Create item (SharePoint)', category: 'action', icon: 'plus-square', desc: 'Creates a row item in a SharePoint list.' },
             'act_send_email': { id: 'act_send_email', name: 'Send an email (V2)', category: 'action', icon: 'send', desc: 'Sends an email through Office 365 Outlook.' },
             'act_teams_msg': { id: 'act_teams_msg', name: 'Post message in a chat or channel', category: 'action', icon: 'message-square', desc: 'Posts a notification into Microsoft Teams.' },
             'act_sp_get_items': { id: 'act_sp_get_items', name: 'Get items (SharePoint)', category: 'action', icon: 'database', desc: 'Retrieves multiple rows from a SharePoint list.' },
@@ -350,12 +352,14 @@
                 title: "Approval Workflow",
                 badge: "LEVEL 2 - CONTROL LOGIC",
                 desc: "Create an approval branch: Trigger when a SharePoint item is created, evaluate a Condition, and route outputs.",
-                target: "SP Item Created -> Condition -> [If Yes: Post Teams | If No: Send Email]",
+                target: "SP Item Created -> Condition -> Send an email (V2)",
                 allowedNodes: ['trig_sharepoint', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
-                solution: ['trig_sharepoint', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                solution: ['trig_sharepoint', 'ctrl_condition', 'act_send_email'],
                 validation: (canvasNodes) => {
                     if (canvasNodes.length < 3) return false;
-                    return canvasNodes[0].catalogId === 'trig_sharepoint' && canvasNodes[1].catalogId === 'ctrl_condition';
+                    return canvasNodes[0].catalogId === 'trig_sharepoint' && 
+                           canvasNodes[1].catalogId === 'ctrl_condition' &&
+                           (canvasNodes[2].catalogId === 'act_send_email' || canvasNodes[2].catalogId === 'act_teams_msg');
                 }
             },
             {
@@ -388,13 +392,26 @@
                 id: 5,
                 title: "Enterprise Automation Boss Challenge",
                 badge: "LEVEL 5 - BOSS",
-                desc: "Construct an enterprise end-to-end flow connecting Forms, SharePoint, Conditionals, Teams, and Email.",
-                target: "Forms -> SP Item -> Condition -> Teams & Email",
-                allowedNodes: ['trig_forms', 'trig_sharepoint', 'act_sp_get_items', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
-                solution: ['trig_forms', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                desc: "Construct an enterprise end-to-end flow: When Microsoft Forms response is submitted -> Get response details -> Create SharePoint item -> Evaluate Condition -> Post Teams Message & Send Email.",
+                target: "Forms Trigger -> Get response details -> Create item (SharePoint) -> Condition -> Post Teams / Send Email",
+                allowedNodes: ['trig_forms', 'act_forms_details', 'act_sp_create_item', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
+                solution: ['trig_forms', 'act_forms_details', 'act_sp_create_item', 'ctrl_condition', 'act_teams_msg', 'act_send_email'],
                 validation: (canvasNodes) => {
-                    if (canvasNodes.length < 4) return false;
-                    return canvasNodes[0].catalogId === 'trig_forms' && canvasNodes[1].catalogId === 'ctrl_condition';
+                    if (canvasNodes.length < 5) return false;
+                    const ids = canvasNodes.map(n => n.catalogId);
+                    
+                    // Check strict pipeline sequence up to condition
+                    const validLead = ids[0] === 'trig_forms' && 
+                                      ids[1] === 'act_forms_details' && 
+                                      ids[2] === 'act_sp_create_item' && 
+                                      ids[3] === 'ctrl_condition';
+                    
+                    // Branch steps must contain both Teams message and Email notification actions
+                    const remaining = ids.slice(4);
+                    const hasTeams = remaining.includes('act_teams_msg');
+                    const hasEmail = remaining.includes('act_send_email');
+
+                    return validLead && hasTeams && hasEmail;
                 }
             }
         ];
@@ -475,7 +492,7 @@
                 const info = NODE_CATALOG[catalogId];
                 if (!info) return;
 
-                // Check single trigger rule
+                // Single trigger guard
                 if (info.category === 'trigger' && this.canvasNodes.some(n => NODE_CATALOG[n.catalogId].category === 'trigger')) {
                     this.log('Error: A Power Automate flow can only have ONE trigger at the top step.', 'error');
                     this.audio.playError();
@@ -524,12 +541,22 @@
                     return;
                 }
 
+                // Check condition presence for branching rendering
+                let conditionIndex = this.canvasNodes.findIndex(n => n.catalogId === 'ctrl_condition');
+
                 this.canvasNodes.forEach((node, index) => {
                     const info = NODE_CATALOG[node.catalogId];
                     const card = document.createElement('div');
                     card.id = node.instanceId;
-                    card.className = `w-80 rounded-xl border p-3 bg-slate-900 shadow-xl transition-all relative z-10 node-${info.category}`;
                     
+                    let branchLabel = '';
+                    if (conditionIndex !== -1 && index > conditionIndex) {
+                        const offset = index - conditionIndex;
+                        if (offset === 1) branchLabel = `<span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">IF YES BRANCH</span>`;
+                        else if (offset === 2) branchLabel = `<span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">IF NO BRANCH</span>`;
+                    }
+
+                    card.className = `w-80 rounded-xl border p-3 bg-slate-900 shadow-xl transition-all relative z-10 node-${info.category}`;
                     card.onclick = () => this.inspectNode(node);
 
                     card.innerHTML = `
@@ -538,7 +565,8 @@
                                 <span class="text-[9px] font-mono px-1.5 py-0.5 rounded badge-${info.category} uppercase font-bold">
                                     STEP ${index + 1}
                                 </span>
-                                <span class="text-xs font-bold text-white truncate max-w-[170px]">${info.name}</span>
+                                ${branchLabel}
+                                <span class="text-xs font-bold text-white truncate max-w-[140px]">${info.name}</span>
                             </div>
                             <button onclick="event.stopPropagation(); game.removeNode('${node.instanceId}')" class="text-slate-500 hover:text-rose-400 transition">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -600,7 +628,13 @@
                     sampleOutput = {
                         statusCode: 200,
                         headers: { "content-type": "application/json" },
-                        body: { id: "ITEM-9042", subject: "Automated Inquiry", from: "user@organization.com" }
+                        body: { id: "RESP-9042", responder: "user@organization.com", submitDate: new Date().toISOString() }
+                    };
+                } else if (info.category === 'control') {
+                    sampleOutput = {
+                        expression: "equals(outputs('Get_response_details')?['body/ApprovalStatus'], 'Approved')",
+                        result: true,
+                        evaluatedBranch: "If Yes"
                     };
                 } else {
                     sampleOutput = {
@@ -658,19 +692,19 @@
                     if (isValid) {
                         status.textContent = "Succeeded";
                         status.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                        this.log('Flow run completed successfully! Goal reached.', 'success');
+                        this.log('Flow run completed successfully! All level goals met.', 'success');
                         this.audio.playSuccess();
 
                         // Score & Stars calculation
                         const stars = 3;
-                        this.scores[currentLvl.id] = { stars, score: 300 };
+                        this.scores[currentLvl.id] = { stars, score: 500 };
                         this.updateScoreDisplay();
                         this.showSuccessModal(stars);
 
                     } else {
                         status.textContent = "Failed";
                         status.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30";
-                        this.log('Flow execution failed requirements! Review level objective targets.', 'error');
+                        this.log('Flow execution failed requirements! Review level objective targets and step order.', 'error');
                         this.audio.playError();
                     }
                 }, stepDelay + 200);
@@ -693,10 +727,17 @@
             showSuccessModal(stars) {
                 const modal = document.getElementById('modal-success');
                 const starsBox = document.getElementById('modal-stars');
+                const btnText = document.getElementById('btn-modal-next-text');
+                
                 starsBox.innerHTML = '';
-
                 for (let i = 0; i < 3; i++) {
                     starsBox.innerHTML += `<i data-lucide="star" class="w-6 h-6 ${i < stars ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}"></i>`;
+                }
+
+                if (this.currentLevelIndex === GAME_LEVELS.length - 1) {
+                    btnText.textContent = "Complete All Challenges!";
+                } else {
+                    btnText.textContent = "Continue to Next Challenge";
                 }
 
                 lucide.createIcons();
@@ -708,7 +749,7 @@
                 if (this.currentLevelIndex < GAME_LEVELS.length - 1) {
                     this.loadLevel(this.currentLevelIndex + 1);
                 } else {
-                    alert("Congratulations! You have completed all Flow Master Power Automate Challenges!");
+                    this.loadLevel(0); // Loop back to start or celebrate
                 }
             }
 
